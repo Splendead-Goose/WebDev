@@ -82,7 +82,8 @@ mysql_env=""
 
 ## Error ##
 repo_err="ERROR: Please specify repo"
-exist_err="ERROR: Repo does not exist yet"
+exist_err="ALERT: Repo does not exist yet. Make directories? (y/n): "
+dir_create="Creating repo directories. Setup git before running this script again."
 env_err="ERROR: Please specify environment"
 same_err="ERROR: Please specify different environments"
 prod_prompt="ALERT: You are about to make changes to $prod_env. Are you sure? (y/n): "
@@ -297,7 +298,14 @@ done
 [[ -z "${repo_name}" ]] && echo "$repo_err" && exit 1
 
 # Verify Repo
-[ ! -d "$main_dir/$repo_name" ] && echo "$exist_err" && exit 1
+if [ ! -d "$main_dir/$repo_name" ]; then
+	read -p "$exist_err" -n 1 -r
+	echo ""
+	[[ ! $REPLY =~ ^[yY]$ ]] && exit 1
+	echo "$dir_create"
+	mkdir -p "$main_dir/$repo_name"/{"$conf_dir","$files_dir","$mysql_dir","$code_dir/$drupal_sites_dir"}
+	exit
+fi
 
 # Check Sync Environment
 if ([[ $sync_files = 1 ]] || [[ $sync_mysql = 1 ]]) && ([[ -z "${src_env}" ]] || [[ -z "${dst_env}" ]]); then
