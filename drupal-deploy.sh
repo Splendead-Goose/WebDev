@@ -64,6 +64,7 @@ conf_file="db-settings.php"
 drupal_sites_dir="sites/default"
 drupal_files_dir="$drupal_sites_dir/files"
 apache_dir="/var/www"
+git_dir=".git"
 
 ## Environment ##
 src_env=""
@@ -83,7 +84,8 @@ mysql_env=""
 ## Error ##
 repo_err="ERROR: Please specify repo"
 exist_err="ALERT: Repo does not exist yet. Make directories? (y/n): "
-dir_create="Creating repo directories. Setup git before running this script again."
+dir_create="Setup git before running this script again."
+git_err="ERROR: GIT is not setup yet for repo"
 env_err="ERROR: Please specify environment"
 same_err="ERROR: Please specify different environments"
 prod_prompt="ALERT: You are about to make changes to $prod_env. Are you sure? (y/n): "
@@ -138,6 +140,12 @@ Examples:
     Sync:	$0 -r test_repo -s PROD -fm
     Both:	$0 -r test_repo -pbfm -s PROD
 EOF
+}
+
+createrepo () {
+	echo "Creating Directories"
+	mkdir -p "$workdir"/{"$conf_dir","$files_dir","$mysql_dir","$code_dir/$drupal_sites_dir"}
+	create_links
 }
 
 create_log () {
@@ -215,23 +223,30 @@ deploy_git () {
 
 pull_code () {
 	echo "Pulling Latest Code"
-	echo "cd $workdir/$code_dir"
+	cd $workdir/$code_dir
 	echo "git pull"
 	echo ""
+	create_links
+}
+
+create_links () {
 	echo "Linking Config and Files Directory"
-	echo "ln -s $conf_dir/$conf_file $code_dir/$drupal_sites_dir/$conf_file"
-	echo "ln -s $files_dir $code_dir/$drupal_files_dir"
+	conf_link="$workdir/$code_dir/$drupal_sites_dir/$conf_file"
+	files_link="$workdir/$code_dir/$drupal_files_dir"
+	apache_link="$apache_dir/$repo_name"
+	[[ ! -L ${conf_link} ]] && ln -s $workdir/$conf_dir/$conf_file $conf_link
+	[[ ! -L ${files_link} ]] && ln -s $workdir/$files_dir $files_link
+	echo "Linking Apache Directory"
+	[[ ! -L ${apache_link} ]] && ln -s $workdir/$code_dir $apache_link
 	echo ""
 }
 
 run_composer () {
 	echo "Running Composer"
-	echo "cd $workdir/$code_dir"
+	cd $workdir/$code_dir
 	echo "composer update"
 	echo "composer install"
 	echo ""
-	echo "Linking Apache Directory"
-	echo "ln -s $workdir/$code_dir $apache_dir/$repo_name"
 }
 
 sync_stuff () {
@@ -264,7 +279,7 @@ rsync_db () {
 drush_update () {
 	echo ""
 	echo "Updating DB with DRUSH"
-	echo "cd $workdir/$code_dir"
+	cd $workdir/$code_dir
 	echo "drush updb -y"
 	echo ""
 }
@@ -297,15 +312,19 @@ done
 # Check for Repo
 [[ -z "${repo_name}" ]] && echo "$repo_err" && exit 1
 
-# Verify Repo
-if [ ! -d "$main_dir/$repo_name" ]; then
+# Verify Repo Dir
+if [ ! -d "$main_dir/$repo_name/$code_dir" ]; then
 	read -p "$exist_err" -n 1 -r
 	echo ""
 	[[ ! $REPLY =~ ^[yY]$ ]] && exit 1
+	setworkdir
+	createrepo
 	echo "$dir_create"
-	mkdir -p "$main_dir/$repo_name"/{"$conf_dir","$files_dir","$mysql_dir","$code_dir/$drupal_sites_dir"}
 	exit
 fi
+
+# Verify Repo Git
+[ ! -d "$main_dir/$repo_name/$code_dir/$git_dir" ] && echo "$git_err" && exit 1
 
 # Check Sync Environment
 if ([[ $sync_files = 1 ]] || [[ $sync_mysql = 1 ]]) && ([[ -z "${src_env}" ]] || [[ -z "${dst_env}" ]]); then
