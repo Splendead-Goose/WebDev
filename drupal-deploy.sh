@@ -55,6 +55,9 @@ repo_name=""
 code_dir="src"
 script_dir="_scripts"
 log_dir="$script_dir/logs"
+cron_pb=0
+git_diffs=0
+log_cron="cron"
 
 ## Deploy ##
 git_pull=0
@@ -91,6 +94,7 @@ same_err="ERROR: Please specify different environments"
 prod_prompt="ALERT: You are about to make changes to $prod_env. Are you sure? (y/n): "
 src_err="ERROR: Source environment unknown"
 dest_err="ERROR: Destination environment unknown"
+no_diffs="Skipping Pulling Code - No Changes"
 
 
 #################
@@ -104,6 +108,7 @@ $0 can pull the latest code from git and sync files/db between environments
 General Options:
     -h			Shows this message
     -r [repo_name]	Set git repository name - Required
+    -c			Set for cron auto pull and build
 
 Deployment Options:
     -p			Pull latest code from git
@@ -139,6 +144,7 @@ Examples:
     Deploy:	$0 -r test_repo -pb
     Sync:	$0 -r test_repo -s PROD -fm
     Both:	$0 -r test_repo -pbfm -s PROD
+    Cron:	*/5 * * * * $where_am_i/$(basename "$0") -r test_repo -c
 EOF
 }
 
@@ -149,12 +155,24 @@ createrepo () {
 }
 
 create_log () {
-	logname="$repo_name-$(date '+%Y%m%d-%H%M').log"
+	if [[ $cron_pb = 1 ]]; then
+		logname="$log_cron-$repo_name-$(date '+%Y%m%d-%H%M').log"
+	else
+		logname="$repo_name-$(date '+%Y%m%d-%H%M').log"
+	fi
 	logfile="$main_dir/$log_dir/$logname"
 }
 
 setworkdir () {
 	workdir="$main_dir/$repo_name"
+}
+
+check_diff () {
+	[ ! git diff --git-dir="$workdir/$code_dir/$git_dir" --quiet ] && git_diffs=1
+	if [[ $cron_pb = 1 ]] && [[ $git_diffs = 0 ]]; then
+		# No git diffs = no need to pull or build when running from cron
+		exit
+	fi
 }
 
 findsrcenv () {
@@ -210,15 +228,21 @@ echoenvvar () {
 }
 
 deploy_git () {
-	if [[ $git_pull = 1 ]] || [[ $build_site = 1 ]]; then
+	if [[ $git_pull = 1 ]] || [[ $build_site = 1 ]] || [[ $cron_pb = 1 ]]; then
 		echo "------------------------------------------------------------"
 		echo "Deploying Site: $repo_name"
 		echo "------------------------------------------------------------"
 		echo ""
 	fi
-
-	[[ $git_pull = 1 ]] && pull_code
-	[[ $build_site = 1 ]] && run_composer
+	if ([[ $git_pull = 1 ]] || [[ $cron_pb = 1 ]]) && [[ $git_diffs = 1 ]]; then
+		pull_code
+	else
+		echo "$no_diffs"
+		echo ""
+	fi
+	if [[ $build_site = 1 ]] || ([[ $cron_pb = 1 ]] && [[ $git_diffs = 1 ]]); then
+		run_composer
+	fi
 }
 
 pull_code () {
@@ -290,11 +314,12 @@ drush_update () {
 ##################
 
 # Get Flags
-while getopts "r:s:hpbfm" opt; do
+while getopts "r:s:hcpbfm" opt; do
 	case ${opt} in
 		h ) usage
 		    exit ;;
 		r ) repo_name=${OPTARG} ;;
+		c ) cron_pb=1 ;;
 		p ) git_pull=1 ;;
 		b ) build_site=1 ;;
 		s ) src_env=${OPTARG} ;;
@@ -352,6 +377,7 @@ fi
 
 create_log
 setworkdir
+check_diff
 [[ -n $src_env ]] && findsrcenv
 [[ -n $dst_env ]] && finddstenv
 echoenvvar | tee -aip $logfile
