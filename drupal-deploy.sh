@@ -83,6 +83,7 @@ sync_mysql=0
 mysql_dir="_mysql"
 mysql_ext=".latest.sql"
 mysql_env=""
+drush_bin="./vendor/bin/drush"
 
 ## Error ##
 repo_err="ERROR: Please specify repo"
@@ -168,7 +169,7 @@ setworkdir () {
 }
 
 check_diff () {
-	[ ! git diff --git-dir="$workdir/$code_dir/$git_dir" --quiet ] && git_diffs=1
+	! $(git -C "$workdir/$code_dir/" diff --quiet) && git_diffs=1
 	if [[ $cron_pb = 1 ]] && [[ $git_diffs = 0 ]]; then
 		# No git diffs = no need to pull or build when running from cron
 		exit
@@ -248,7 +249,7 @@ deploy_git () {
 pull_code () {
 	echo "Pulling Latest Code"
 	cd $workdir/$code_dir
-	echo "git pull"
+	git pull
 	echo ""
 	create_links
 }
@@ -268,8 +269,8 @@ create_links () {
 run_composer () {
 	echo "Running Composer"
 	cd $workdir/$code_dir
-	echo "composer update"
-	echo "composer install"
+	composer update
+	composer install
 	echo ""
 }
 
@@ -287,16 +288,16 @@ sync_stuff () {
 
 rsync_files () {
 	echo "Syncing Files from $src_env"
-	echo "rsync -avh --stats --delete $src_fhost:$workdir/$files_dir $workdir/$files_dir/"
+	rsync -avh --stats --delete $src_fhost:$workdir/$files_dir $workdir/$files_dir/
 	echo ""
 }
 
 rsync_db () {
 	echo "Syncing DB from $src_env"
-	echo "rsync -avhL --stats $src_mhost:$workdir/$mysql_dir/$repo_name$mysql_ext $workdir/$mysql_dir/$repo_name-$mysql_env"
+	rsync -avhL --stats $src_mhost:$workdir/$mysql_dir/$repo_name$mysql_ext $workdir/$mysql_dir/$repo_name-$mysql_env
 	echo ""
 	echo "Importing DB to $dst_env"
-	echo "mysql -s $dest_mhost $repo_name < $workdir/$mysql_dir/$repo_name-$mysql_env"
+	mysql -s $dest_mhost $repo_name < $workdir/$mysql_dir/$repo_name-$mysql_env
 	[[ $? = 0 ]] && drush_update
 }
 
@@ -304,7 +305,7 @@ drush_update () {
 	echo ""
 	echo "Updating DB with DRUSH"
 	cd $workdir/$code_dir
-	echo "drush updb -y"
+	$drush_bin updb -y
 	echo ""
 }
 
