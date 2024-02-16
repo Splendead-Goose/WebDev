@@ -3,6 +3,7 @@
 ##############################
 ### Drupal Deploy and Sync ###
 ###    Created by Goose    ###
+### Maintained by PraviinM ###
 ##############################
 
 
@@ -63,7 +64,7 @@ log_cron="cron"
 git_pull=0
 build_site=0
 conf_dir="_config"
-conf_file="db-settings.php"
+conf_file="settings.php"
 drupal_sites_dir="sites/default"
 drupal_files_dir="$drupal_sites_dir/files"
 apache_dir="/var/www"
@@ -78,7 +79,8 @@ dev_env="DEV"
 
 ## Sync ##
 sync_files=0
-files_dir="_data/files"
+files_root="_data"
+files_dir="$files_root/files"
 sync_mysql=0
 mysql_dir="_mysql"
 mysql_ext=".latest.sql"
@@ -269,8 +271,9 @@ create_links () {
 run_composer () {
 	echo "Running Composer"
 	cd $workdir/$code_dir
-	composer update
+	#composer update
 	composer install
+	$drush_bin cr
 	echo ""
 }
 
@@ -288,7 +291,7 @@ sync_stuff () {
 
 rsync_files () {
 	echo "Syncing Files from $src_env"
-	rsync -avh --stats --delete $src_fhost:$workdir/$files_dir $workdir/$files_dir/
+	rsync -avh --stats --delete $src_fhost:$workdir/$files_dir $workdir/$files_root/
 	echo ""
 }
 
