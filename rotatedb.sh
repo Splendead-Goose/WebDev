@@ -3,6 +3,7 @@
 #############################
 ### Rotate Database Dumps ###
 ###   Created by: Goose   ###
+## Maintained by: PraviinM ##
 #############################
 
 # Assumes .my.cnf is setup for user
