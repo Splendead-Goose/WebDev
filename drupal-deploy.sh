@@ -171,7 +171,11 @@ setworkdir () {
 }
 
 check_diff () {
-	! $(git -C "$workdir/$code_dir/" diff --quiet) && git_diffs=1
+	#! $(git -C "$workdir/$code_dir/" diff --quiet) && git_diffs=1
+	git_update=$(git -C "$workdir/$code_dir/" remote update)
+	git_locals=$(git -C "$workdir/$code_dir/" rev-parse @{0})
+	git_remote=$(git -C "$workdir/$code_dir/" rev-parse @{u})
+	[[ $git_locals != $git_remote ]] && git_diffs=1
 	if [[ $cron_pb = 1 ]] && [[ $git_diffs = 0 ]]; then
 		# No git diffs = no need to pull or build when running from cron
 		exit
