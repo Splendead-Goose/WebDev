@@ -59,6 +59,9 @@ log_dir="$script_dir/logs"
 cron_pb=0
 git_diffs=0
 log_cron="cron"
+git_update=""
+git_locals=""
+git_remote=""
 
 ## Deploy ##
 git_pull=0
